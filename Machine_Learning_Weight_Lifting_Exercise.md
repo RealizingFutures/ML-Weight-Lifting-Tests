@@ -2,15 +2,15 @@
 Jared Endicott  
 Sunday, November 22, 2015  
 
-# Introduction
+## Introduction
 
-There are many wearable wireless devices on the market today which allow the user to measure various forms of physical activity. These devices are used to track the quantity of a particular exercise, such as steps taken or the amount of times a weight is lifted. What is no analyze as often is the quality of the execise, or how well it is performed.
+There are many wearable wireless devices on the market today which allow the user to measure various forms of physical activity. These devices are used to track the quantity of a particular exercise, such as steps taken or the amount of times a weight is lifted. What is not analyze as often is the quality of the execise, how well it is performed.
 
-The goal of this execise is to analyze a set of data from 6 participants as they lift weights. The data is from accelerometers on the belt, forearm, arm, and dumbell of the participants. The participants were given instructions on lifting barbells correctly and incorrectly five different ways. These outcomes are tracked with the variable classe. The purpose of the project is to build a predictive model from a training data set, which can then be used to predict the outcomes on subsequent data sets.  
+The goal of this report is to analyze a set of data from 6 participants as they lift weights. The data is from accelerometers on the belt, forearm, arm, and dumbell of the participants. The participants were given instructions on lifting barbells correctly and incorrectly five different ways. These outcomes are tracked with the variable classe. The purpose of the project is to build a predictive model from a training data set, which can then be used to predict the outcomes on subsequent data sets.  
 
-# Getting the Data
+## Getting, Cleaning and Preprocessing the Data
 
-The first thing to do is set the seed so that the analysis and model building can be reproduced.Next we load all of the various libraries we will be using.then we import the data frames for the training and testing sets.
+The first thing to do is set the seed so that the analysis and model building can be reproduced.Next we load all of the various libraries we will be using. Then we import the data frames for the training and testing sets.
 
 
 ```r
@@ -18,15 +18,10 @@ The first thing to do is set the seed so that the analysis and model building ca
 set.seed(1188)
 
 ## Load packages
-suppressWarnings(library(tidyr)); suppressWarnings(library(RColorBrewer))
-suppressWarnings(library(caret)); suppressWarnings(library(rattle))
-suppressWarnings(library(ggplot2)); suppressWarnings(library(data.table))
-suppressWarnings(library(GGally)); suppressWarnings(library(rpart))
-suppressWarnings(library(randomForest)); suppressWarnings(library(gbm))
-suppressWarnings(library(survival)); suppressWarnings(library(klaR))
-suppressWarnings(library(MASS)); suppressWarnings(library(ipred))
-suppressWarnings(library(plyr)); suppressWarnings(library(dplyr))
-suppressWarnings(library(gridExtra))
+library(tidyr); library(caret); library(ggplot2); library(data.table)
+library(GGally); library(gridExtra); library(rpart); library(rpart); 
+library(gbm); library(survival); library(klaR); library(MASS)
+library(ipred); library(plyr); library(dplyr)
 
 ## Download the raw data csv files and load into data tables
 train.file <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
@@ -35,14 +30,12 @@ training <- data.table(read.csv(train.file))
 testing <- read.csv(test.file)
 ```
 
-# Cleaning and Preprocessing the Data
-
-Since a model will not be able to predict with columns in the testing set that are NA there is no reason to include these columns in the testing or training sets. 
+Since a model will not be able to predict with columns in the testing set that are NA there is no reason to include these columns in the testing or training sets. Additionally, the fields used for numbering, timestamps, and other logisitics do not make suitable features for prediction, because they can be unnaturally correlated with the classification variable and can confound the model design.
 
 
 ```r
 ## Preprocess by removing columns from training that are 
-## completely NA in testing set or are related to time, order, and 
+## completely NA in testing set or are related to time, order, etc
 testing.clean <- testing[ ,colSums(is.na(testing)) < nrow(testing)]
 testing.final <- testing.clean[ ,!names(testing.clean) %in% 
         c("X","problem_id","raw_timestamp_part_1","raw_timestamp_part_2",
@@ -50,12 +43,12 @@ testing.final <- testing.clean[ ,!names(testing.clean) %in%
 training.clean <- training[ ,c("classe", names(testing.final)), with=FALSE]
 ```
 
-In order to avoid overfitting it is best to partion the original training data into training (60%), validation (20%), and testing (20%) data sets. We will use the training set to traing and build the models. The validation set will be used to test each model and compare the model results from each model to determine which one works best at predicting data. The testing set will be used one time to test the final model that is selected in order to gauge the out of sample error. In addition we will be training each model using cross validation. These steps should ensure that the model we choose doesn't overfit the data and thus perform poorly on new data.
+In order to avoid overfitting it is best to partition the original training data into training (60%), validation (20%), and testing (20%) data sets. We will use the training set to traing and build the models. The validation set will be used to test each model and compare the model results from each model to determine which one works best at predicting data. The testing set will be used one time to test the final model that is selected in order to gauge the out of sample error. In addition we will be training each model using cross validation. These steps should ensure that the model we choose doesn't overfit the data and thus perform poorly on new data.
 
 
 ```r
 ## Partition original training dataset into 3 datasets, 
-## training.model (40%), testing.model (20%), and validation.model (20%)
+## training.model (40%), validation.model (20%), and testing.model (20%)
 inTrain <- createDataPartition(y=training.clean$classe,
         p=0.60, list=FALSE)
 training.model <- as.data.frame(training.clean)[inTrain,]
@@ -66,7 +59,7 @@ validation.model <- as.data.frame(holdout)[inTest,]
 testing.model <- as.data.frame(holdout)[-inTest,]
 ```
 
-There is a predictor variable called user_name which is a qualitative factor variable. Qualitative variables are tricky for prediction algorithms to model, so a useful step is to transform the factor variable into a new quantiative dummy variables that indicate a 1 or 0 if that factor level is in effect on the record.For this factor there are five levels, so this will create five new dummy variables. We apply this change to all of the data sets.
+There is a predictor variable called user_name which is a qualitative factor variable. Qualitative variables are tricky for prediction algorithms to model, so a useful step is to transform the factor variable into new quantiative dummy variables that indicate a 1 or 0 if that factor level is in effect on the record. For this factor there are five levels, so this will create five new dummy variables. We apply this change to all of the data sets.
 
 
 ```r
@@ -84,9 +77,9 @@ dummies <- dummyVars(~ user_name, data=testing.final)
 testing.final <- cbind(testing.final, predict(dummies, newdata=testing.final))
 ```
 
-# Model Building
+## Building the Model
 
-First we will create an object for the trainControl function with the repeatedcv method that will allow us to build each model using cross valiation. Next we build five different models using the following methods, a classification tree algorithm, a bagging algorithm, a random forest algorithm, and a boosting algorithm. These methods were selected for testing because they are suitable for predicting qualitative classification variables and thus have the best bet of performing well. After builing the models we will view the results from each one in order to get a sense of which model will perform the best.
+First we will create an object for the trainControl function with the repeatedcv method that will allow us to build each model using cross valiation. Next we build four different models using the following methods, a classification tree algorithm, a bagging algorithm, a random forest algorithm, and a boosting algorithm. These methods were selected for testing because they are suitable for predicting qualitative classification variables and thus have the best bet of performing well on our data. After builing the models we will view the results from each one in order to get a sense of which model will perform the best.
 
 
 ```r
@@ -195,10 +188,32 @@ Based on the results from the four models we attempted the most promising models
 predict.rpart <- predict(model.rpart,newdata=validation.model)
 predict.treebag <- predict(model.treebag,newdata=validation.model)
 predict.rf <- predict(model.rf,newdata=validation.model)
+```
+
+```
+## Loading required package: randomForest
+```
+
+```
+## Warning: package 'randomForest' was built under R version 3.2.2
+```
+
+```
+## randomForest 4.6-12
+## Type rfNews() to see new features/changes/bug fixes.
+## 
+## Attaching package: 'randomForest'
+## 
+## The following object is masked from 'package:dplyr':
+## 
+##     combine
+```
+
+```r
 predict.gbm <- predict(model.gbm,newdata=validation.model)
 ```
 
-We can compare the predictions made by each model to the actual results in the validation set by builing confusion matrices.
+We can compare the predictions made by each model to the actual results in the validation set by builing confusion matrices. We can compare the accuracy for each model on the validation data to determine which one we should use.
 
 
 ```r
@@ -272,9 +287,21 @@ grid.arrange(g1, g2, nrow=2)
 
 ![](Machine_Learning_Weight_Lifting_Exercise_files/figure-html/unnamed-chunk-13-1.png) 
 
-# Conclusion
+Cross validation was used to build all of the models and this protects against overfitting and provides an estimate for the out of sample error. For the Random Forests model this out of estimate error is estimated to be 0.84% as shown below.
 
-Out of the five algorithms we attempted, two are clearly weaker than the others. This is Recursive Partitioning and Regression Trees and Naive Bayes. The other three, Tree Bag, Random Forests, and Generalized Boosted Regression Models, are the best performers out of sample. Each of these has an accuracy rate of higher than 0.95. The best model for this data uses the Random Forecast algorithm with 0.9931 accuracy. This is the model we will select and apply to the testing set.
+
+```r
+model.rf$finalModel$err.rate[500,1]
+```
+
+```
+##         OOB 
+## 0.008406929
+```
+
+## Conclusion
+
+Out of the four algorithms we attempted, Tree Bag, Random Forests, and Generalized Boosted Regression Models, are the best performers out of sample. Each of these has an accuracy rate of higher than 0.95. The best model for this data uses the Random Forecast algorithm with 0.9931 accuracy. This is the model we will select and apply to the testing set.
 
 
 ```r
@@ -316,6 +343,8 @@ cm.rf.test
 ## Detection Prevalence   0.2837   0.1942   0.1759   0.1639   0.1823
 ## Balanced Accuracy      0.9980   0.9954   0.9929   0.9935   0.9958
 ```
+
+The results for the Random Forests model on the testing set are very accurate at predicting the correct classification. Random Forests is often a highly accurate technique, which is its major strength. However, there are some drawbacks to using this method. The algorithm takes a long time process, with hours of running time in our case. Also, the results are difficult to interpret due to the way the algorithm bootsraps samples to build many different classification trees that are averaged or voted, with bootstapping also applied to ariable selection each time the data is split. Random Forests can also have the problem of overfitting, but our use of Cross Validation and testing on hold out samples mitigates this weaknes.
 
 Next we will use the Random Forest model to make predictions on the final testing set of the 20 submission problems.
 
