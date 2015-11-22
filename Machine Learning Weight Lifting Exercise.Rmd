@@ -30,6 +30,7 @@ suppressWarnings(library(randomForest)); suppressWarnings(library(gbm))
 suppressWarnings(library(survival)); suppressWarnings(library(klaR))
 suppressWarnings(library(MASS)); suppressWarnings(library(ipred))
 suppressWarnings(library(plyr)); suppressWarnings(library(dplyr))
+suppressWarnings(library(gridExtra))
 
 ## Download the raw data csv files and load into data tables
 train.file <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
@@ -86,12 +87,14 @@ testing.final <- cbind(testing.final, predict(dummies, newdata=testing.final))
 
 # Model Building
 
-First we will create an object for the trainControl function with the repeatedcv method that will allow us to build each model using cross valiation. Next we build five different models using the following methods, a classification tree, a bagging model, a random forest, a boosting model, and a naive bayesian model. these algorithms were selected for testing because they are suitable for predicting qualitative variables. After builing the models we will view the results from each one in order to get a sense of which model will perform the best.
+First we will create an object for the trainControl function with the repeatedcv method that will allow us to build each model using cross valiation. Next we build five different models using the following methods, a classification tree algorithm, a bagging algorithm, a random forest algorithm, and a boosting algorithm. These methods were selected for testing because they are suitable for predicting qualitative classification variables and thus have the best bet of performing well. After builing the models we will view the results from each one in order to get a sense of which model will perform the best.
 
 ```{r}
 ## Set up cross validation with trainControl parameter function
 fitControl <- trainControl(method = "repeatedcv",number=10,repeats=10)
 ```
+
+Build a model using the Recursive Partitioning and Regression Trees algorithm.
 
 ```{r cache=TRUE}
 ## Training models
@@ -99,54 +102,52 @@ model.rpart <- train(classe ~ ., data=training.model,
         method="rpart",trControl = fitControl)
 ```
 
+Build a model using the Recursive Partitioning and Regression Trees algorithm.
+
 ```{r cache=TRUE}
 model.treebag <- train(classe ~ ., data=training.model, 
         method="treebag",trControl = fitControl)
 ```
+
+Build a model using the Tree Bag algorithm.
 
 ```{r cache=TRUE}
 model.rf <- train(classe ~ ., data=training.model,
         method="rf",trControl = fitControl)
 ```
 
+Build a model using the Generalized Boosted Regression Models algorithm.
+
 ```{r results="hide", cache=TRUE}
 model.gbm <- train(classe ~ ., data=training.model,
         method="gbm",trControl = fitControl)
 ```
 
-```{r warning=FALSE, cache=TRUE}
-##model.nb <- train(classe ~ ., data=training.model, 
-##        method="nb",trControl = fitControl)
-```
+View the results from each model.
 
 ```{r}
 model.rpart$results
 model.treebag$results
 model.rf$results
 model.gbm$results
-##model.nb$results
 ```
 
-Based on the results from the five models we attempted the most promising models are Tree Bag, Random Forests, and Generalized Boosted Regression Models. It is helpful to compare these models using out of sample accuracy by predicting the outcomes on an independent validation data set. 
+Based on the results from the four models we attempted the most promising models are Tree Bag, Random Forests, and Generalized Boosted Regression Models. It is helpful to compare these models using out of sample accuracy by predicting the outcomes on an independent validation data set. 
 
 ```{r}
 predict.rpart <- predict(model.rpart,newdata=validation.model)
 predict.treebag <- predict(model.treebag,newdata=validation.model)
 predict.rf <- predict(model.rf,newdata=validation.model)
 predict.gbm <- predict(model.gbm,newdata=validation.model)
-##predict.nb <- predict(model.nb,newdata=validation.model)
+```
 
+We can compare the predictions made by each model to the actual results in the validation set by builing confusion matrices.
+
+```{r}
 cm.rpart <- confusionMatrix(predict.rpart, validation.model$classe)
 cm.treebag <- confusionMatrix(predict.treebag, validation.model$classe)
 cm.rf <- confusionMatrix(predict.rf, validation.model$classe)
 cm.gbm <- confusionMatrix(predict.gbm, validation.model$classe)
-##cm.nb <- confusionMatrix(predict.nb, validation.model$classe)
-
-##models.accuracy <- c(cm.rpart[[3]][1], cm.treebag[[3]][1], cm.rf[[3]][1], 
-##        cm.gbm [[3]][1], cm.nb[[3]][1])
-##names(models.accuracy) <- c("Recursive Partitioning and Regression Trees", 
-##        "Tree Bag", "Random Forests", "Generalized Boosted Regression Models", 
-##        "Naive Bayes")
 
 models.accuracy <- c(cm.rpart[[3]][1], cm.treebag[[3]][1], cm.rf[[3]][1], 
         cm.gbm [[3]][1])
@@ -154,7 +155,49 @@ names(models.accuracy) <- c("Recursive Partitioning and Regression Trees",
         "Tree Bag", "Random Forests", "Generalized Boosted Regression Models")
 
 models.accuracy
+```
 
+We can visualize and compare the models using the data from the confusion matrices. Below is a comparison of the Recursive Partitioning and Regression Trees to the Random Forests. You can see that the Random Forests model performs much better for this classification challenge.
+
+```{r}
+normalize <- function(x) { 
+        x <- sweep(x, 2, apply(x, 2, min)) 
+        sweep(x, 2, apply(x, 2, max), "/") 
+} 
+
+ctable <- as.table(matrix(c(cm.rpart$table), nrow = 5, byrow = TRUE)) 
+input.matrix <- data.matrix(ctable) 
+input.matrix.normalized <- normalize(input.matrix) 
+ 
+colnames(input.matrix.normalized) = c("A", "B", "C", "D", "E") 
+rownames(input.matrix.normalized) = colnames(input.matrix.normalized) 
+confusion <- as.data.frame(as.table(input.matrix.normalized)) 
+ 
+g1 <- ggplot(confusion) 
+g1 <- g1 + geom_tile(aes(x=Var1, y=Var2, fill=Freq)) +
+ggtitle("Recursive Partitioning and Regression Trees") +
+scale_x_discrete(name="Actual Class") +
+scale_y_discrete(name="Predicted Class") +
+scale_fill_gradient(breaks=seq(from=-.5, to=4, by=.2)) +
+labs(fill="Normalized\nFrequency")
+
+ctable <- as.table(matrix(c(cm.rf$table), nrow = 5, byrow = TRUE)) 
+input.matrix <- data.matrix(ctable) 
+input.matrix.normalized <- normalize(input.matrix) 
+ 
+colnames(input.matrix.normalized) = c("A", "B", "C", "D", "E") 
+rownames(input.matrix.normalized) = colnames(input.matrix.normalized) 
+confusion <- as.data.frame(as.table(input.matrix.normalized)) 
+ 
+g2 <- ggplot(confusion) 
+g2 <- g2 + geom_tile(aes(x=Var1, y=Var2, fill=Freq)) +
+ggtitle("Random Forests") +
+scale_x_discrete(name="Actual Class") +
+scale_y_discrete(name="Predicted Class") +
+scale_fill_gradient(breaks=seq(from=-.5, to=4, by=.2)) +
+labs(fill="Normalized\nFrequency")
+
+grid.arrange(g1, g2, nrow=2)
 ```
 
 # Conclusion
@@ -167,6 +210,9 @@ cm.rf.test <- confusionMatrix(predict.rf.test, testing.model$classe)
 cm.rf.test
 ```
 
+Next we will use the Random Forest model to make predictions on the final testing set of the 20 submission problems.
 
-
+```{r}
+answers <- predict(model.rf,newdata=testing.final)
+```
 
