@@ -63,7 +63,7 @@ img {
 <div id="header">
 <h1 class="title">Machine Learning Weight Lifting Exercise</h1>
 <h4 class="author"><em>Jared Endicott</em></h4>
-<h4 class="date"><em>Sunday, October 11, 2015</em></h4>
+<h4 class="date"><em>Sunday, November 22, 2015</em></h4>
 </div>
 
 
@@ -139,19 +139,6 @@ model.rpart &lt;- train(classe ~ ., data=training.model,
         method=&quot;rpart&quot;,trControl = fitControl)</code></pre>
 <pre class="r"><code>model.treebag &lt;- train(classe ~ ., data=training.model, 
         method=&quot;treebag&quot;,trControl = fitControl)</code></pre>
-<pre><code>## Loading required package: plyr
-## -------------------------------------------------------------------------
-## You have loaded plyr after dplyr - this is likely to cause problems.
-## If you need functions from both plyr and dplyr, please load plyr first, then dplyr:
-## library(plyr); library(dplyr)
-## -------------------------------------------------------------------------
-## 
-## Attaching package: 'plyr'
-## 
-## The following objects are masked from 'package:dplyr':
-## 
-##     arrange, count, desc, failwith, id, mutate, rename, summarise,
-##     summarize</code></pre>
 <pre class="r"><code>model.rf &lt;- train(classe ~ ., data=training.model,
         method=&quot;rf&quot;,trControl = fitControl)</code></pre>
 <pre class="r"><code>model.gbm &lt;- train(classe ~ ., data=training.model,
